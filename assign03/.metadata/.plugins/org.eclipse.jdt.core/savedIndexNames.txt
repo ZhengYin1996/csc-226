@@ -1,0 +1,5 @@
+INDEX VERSION 1.131+E:\course\csc226\assign03\.metadata\.plugins\org.eclipse.jdt.core
+773118073.index
+3271193799.index
+4242768837.index
+3478947444.index

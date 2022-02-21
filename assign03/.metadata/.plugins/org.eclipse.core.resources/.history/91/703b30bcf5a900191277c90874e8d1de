@@ -1,0 +1,155 @@
+import edu.princeton.cs.algs4.FlowEdge;
+import edu.princeton.cs.algs4.FlowNetwork;
+import edu.princeton.cs.algs4.FordFulkerson;
+import edu.princeton.cs.algs4.In;
+import edu.princeton.cs.algs4.SET;
+import edu.princeton.cs.algs4.StdOut;
+
+import java.util.HashMap;
+
+public class BaseballElimination {
+    private int n;
+    private HashMap<String, Integer> stoi;
+    private HashMap<Integer, String> itos;
+    private int[] w, l, r;
+    private int[][] g;
+    private FlowNetwork G;
+    private int flow;
+    private int V;
+    public BaseballElimination(String filename)                    // create a baseball division from given filename in format specified below
+    {
+        In in = new In(filename);
+        n = in.readInt();
+        stoi = new HashMap<>();
+        itos = new HashMap<>();
+        w = new int[n];
+        l = new int[n];
+        r = new int[n];
+        g = new int[n][n];
+        for (int i = 0; i < n; i++)
+        {
+            String team = in.readString();
+            stoi.put(team, i);
+            itos.put(i, team);
+            w[i] = in.readInt();
+            l[i] = in.readInt();
+            r[i] = in.readInt();
+            for (int j = 0; j < n; j++)
+            {
+                g[i][j] = in.readInt();
+            }
+        }
+        V = n*(n-1)/2 + n + 2;
+    }
+    private void constructFlowNetwork(int id)
+    {
+        flow = 0;
+        int s = 0, t = V - 1, index = 1;
+        G = new FlowNetwork(V);
+
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = i + 1; j < n; j++)
+            {
+                flow += g[i][j];
+                G.addEdge(new FlowEdge(s, index, g[i][j]));
+                G.addEdge(new FlowEdge(index, 1+n*(n-1)/2+i, Double.MAX_VALUE));
+                G.addEdge(new FlowEdge(index, 1+n*(n-1)/2+j, Double.MAX_VALUE));
+                index++;
+            }
+            G.addEdge(new FlowEdge(1+n*(n-1)/2+i, t, w[id] + r[id] - w[i]));
+        }
+
+    }
+
+    private void teamValid(String team)
+    {
+        if (!stoi.containsKey(team))
+            throw new IllegalArgumentException("team is invalid");
+    }
+    public              int numberOfTeams()                        // number of teams
+    {
+        return n;
+    }
+    public Iterable<String> teams()                                // all teams
+    {
+        return stoi.keySet();
+    }
+    public              int wins(String team)                      // number of wins for given team
+    {
+        teamValid(team);
+        return w[stoi.get(team)];
+    }
+    public              int losses(String team)                    // number of losses for given team
+    {
+        teamValid(team);
+        return l[stoi.get(team)];
+    }
+    public              int remaining(String team)                 // number of remaining games for given team
+    {   teamValid(team);
+        return r[stoi.get(team)];
+    }
+    public              int against(String team1, String team2)    // number of remaining games between team1 and team2
+    {
+        teamValid(team1);
+        teamValid(team2);
+        return g[stoi.get(team1)][stoi.get(team2)];
+    }
+    public          boolean isEliminated(String team)              // is given team eliminated?
+    {
+        teamValid(team);
+        int x = stoi.get(team);
+        for (int i = 0; i < n; i++)
+        {
+            if (w[x] + r[x] < w[i])
+                return true;
+        }
+        constructFlowNetwork(x);
+        FordFulkerson f = new FordFulkerson(G, 0, V-1);
+        return flow != f.value();
+    }
+    public Iterable<String> certificateOfElimination(String team)  // subset R of teams that eliminates given team; null if not eliminated
+    {
+        teamValid(team);
+        if (!isEliminated(team))
+            return null;
+        SET<String> set = new SET<>();
+        int x = stoi.get(team);
+        boolean isTrivial = false;
+        // Trivial elimination
+        for (int i = 0; i < n; i++)
+        {
+            if (w[x] + r[x] < w[i])
+            {
+                set.add(itos.get(i));
+                isTrivial = true;
+            }
+        }
+        if (!isTrivial)
+        {
+            constructFlowNetwork(stoi.get(team));
+            FordFulkerson f = new FordFulkerson(G, 0, V - 1);
+            // Non Trivial elimination
+            for (int i = 0; i < n; i++) {
+                if (f.inCut(1 + n * (n - 1) / 2 + i))
+                    set.add(itos.get(i));
+            }
+        }
+        return set;
+    }
+    public static void main(String[] args) {
+        BaseballElimination division = new BaseballElimination(args[0]);
+        for (String team : division.teams()) {
+            if (division.isEliminated(team)) {
+                StdOut.print(team + " is eliminated by the subset R = { ");
+                for (String t : division.certificateOfElimination(team)) {
+                    StdOut.print(t + " ");
+                }
+                StdOut.println("}");
+            }
+            else {
+                StdOut.println(team + " is not eliminated");
+            }
+        }
+    }
+}
